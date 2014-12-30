@@ -3971,6 +3971,7 @@ void SqlDb_odbc::createSchema(const char *host, const char *database, const char
 			  price_customer_mult100 bigint DEFAULT NULL,\
 			  price_customer_currency_id smallint DEFAULT NULL,\
 			CONSTRAINT cdr_pkey PRIMARY KEY (id),\
+			CONSTRAINT cdr_id_calldate_key UNIQUE (id,calldate),\
 			  CONSTRAINT \"fkCdrUaA\" FOREIGN KEY (a_ua_id)\
 				  REFERENCES cdr_ua (id) MATCH SIMPLE\
 				  ON UPDATE NO ACTION ON DELETE NO ACTION,\
@@ -4035,10 +4036,10 @@ void SqlDb_odbc::createSchema(const char *host, const char *database, const char
 			fbasename character varying(255),\
 			match_header character varying(128) DEFAULT NULL,\
 			GeoPosition character varying(255) DEFAULT NULL,\
-			CONSTRAINT cdr_next_pkey PRIMARY KEY (cdr_id),\
+			CONSTRAINT cdr_next_pkey PRIMARY KEY (cdr_id,calldate),\
 			CONSTRAINT cdr_next_cdr_id_fkey FOREIGN KEY (cdr_id)\
 					REFERENCES cdr (id) MATCH SIMPLE\
-					ON UPDATE NO ACTION ON DELETE NO ACTION);\
+					ON UPDATE CASCADE ON DELETE CASCADE);\
 		");
 		
 		this->query("CREATE TABLE IF NOT EXISTS cdr_proxy (\
@@ -4047,10 +4048,10 @@ void SqlDb_odbc::createSchema(const char *host, const char *database, const char
 			calldate timestamp NOT NULL,\
 			src bigint,\
 			dst bigint,\
-			CONSTRAINT cdr_proxy_pkey PRIMARY KEY (id),\
+			CONSTRAINT cdr_proxy_pkey PRIMARY KEY (id,calldate),\
 			CONSTRAINT cdr_proxy_cdr_id_fkey FOREIGN KEY (cdr_id)\
 				  REFERENCES cdr (id) MATCH SIMPLE\
-				  ON UPDATE NO ACTION ON DELETE NO ACTION);\
+				  ON UPDATE CASCADE ON DELETE CASCADE);\
 		");
 		
 		this->query("CREATE TABLE IF NOT EXISTS cdr_rtp (\
@@ -4069,7 +4070,7 @@ void SqlDb_odbc::createSchema(const char *host, const char *database, const char
 				CONSTRAINT cdr_rtp_pkey PRIMARY KEY (id,calldate),\
 				CONSTRAINT cdr_rtp_cdr_id_fkey FOREIGN KEY (cdr_id)\
 					REFERENCES cdr (id) MATCH SIMPLE\
-					ON UPDATE NO ACTION ON DELETE NO ACTION);\
+					ON UPDATE CASCADE ON DELETE CASCADE);\
 		");
 		
 		this->query("CREATE TABLE IF NOT EXISTS cdr_dtmf (\
@@ -4083,7 +4084,7 @@ void SqlDb_odbc::createSchema(const char *host, const char *database, const char
 			CONSTRAINT cdr_dtmf_pkey PRIMARY KEY (id,calldate),\
 			CONSTRAINT cdr_dtmf_cdr_id_fkey FOREIGN KEY (cdr_id)\
 				REFERENCES cdr (id) MATCH SIMPLE\
-				ON UPDATE NO ACTION ON DELETE NO ACTION);\
+				ON UPDATE CASCADE ON DELETE CASCADE);\
 		");
 	  
 	  	this->query("CREATE TABLE IF NOT EXISTS contenttype (\
