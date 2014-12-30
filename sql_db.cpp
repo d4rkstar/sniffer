@@ -4251,7 +4251,45 @@ void SqlDb_odbc::createSchema(const char *host, const char *database, const char
 		  CONSTRAINT sensors_pkey PRIMARY KEY (id_sensor)\
 		);");
 		
-	} else {	
+		this->query("CREATE OR REPLACE FUNCTION iif(boolean, double precision, double precision)\
+					  RETURNS double precision AS\
+					$BODY$\
+					DECLARE\
+						rtVal double precision;\
+					BEGIN\
+						rtVal := (SELECT case $1 when true then $2 else $3 end);\
+						RETURN rtVal;\
+					END;\
+					$BODY$\
+					  LANGUAGE plpgsql IMMUTABLE\
+					  COST 100;");
+		
+		this->query("CREATE OR REPLACE FUNCTION subtime(time1 timestamp without time zone, time2 interval)\
+					  RETURNS timestamp without time zone AS\
+					$BODY$BEGIN\
+						RETURN  time1 - time2;\
+					END;$BODY$\
+					  LANGUAGE plpgsql VOLATILE\
+					  COST 100;");
+		
+		this->query("CREATE OR REPLACE FUNCTION \"trim\"(strval character varying)\
+					  RETURNS character varying AS\
+					$BODY$BEGIN\
+						RETURN rtrim(ltrim(strval));\
+					END;$BODY$\
+					  LANGUAGE plpgsql VOLATILE\
+					  COST 100;");
+		
+		this->query("CREATE OR REPLACE FUNCTION unix_timestamp(ts timestamp without time zone)\
+					  RETURNS bigint AS\
+					$BODY$BEGIN\
+						RETURN  EXTRACT(EPOCH FROM ts);\
+					END;$BODY$\
+					  LANGUAGE plpgsql VOLATILE\
+					  COST 100;");
+		// END POSTGRESQL
+	} else {
+		// SQL SERVER
 		this->query(
 		"IF NOT EXISTS (SELECT * FROM sys.objects WHERE name = 'filter_ip') BEGIN\
 			CREATE TABLE filter_ip (\
