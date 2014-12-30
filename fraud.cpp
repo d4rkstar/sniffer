@@ -1650,14 +1650,28 @@ bool isExistsFraudAlerts() {
 	}
 	bool rslt = false;
 	SqlDb *sqlDb = createSqlObject();
-	sqlDb->query("show tables like 'alerts'");
-	if(sqlDb->fetchRow()) {
-		sqlDb->createTable("fraud_alert_info");
-		sqlDb->query("select id, alert_type, descr from alerts\
-			      where alert_type > 20 and\
-				    (disable is null or not disable)\
-				    limit 1");
-		rslt = sqlDb->fetchRow();
+	if (sqlDb->getTypeDb()=="mysql") {
+		sqlDb->query("show tables like 'alerts'");
+		if(sqlDb->fetchRow()) {
+			sqlDb->createTable("fraud_alert_info");
+			sqlDb->query("select id, alert_type, descr from alerts\
+					  where alert_type > 20 and\
+						(disable is null or not disable)\
+						limit 1");
+			rslt = sqlDb->fetchRow();
+		}
+	} else if (sqlDb->getTypeDb()=="odbc") {
+		if (sqlDb->getSubtypeDb()=="pgsql") {
+			sqlDb->query("SELECT * FROM pg_catalog.pg_tables WHERE tablename LIKE '%alerts%'");
+			if(sqlDb->fetchRow()) {
+				sqlDb->createTable("fraud_alert_info");
+				sqlDb->query("select id, alert_type, descr from alerts\
+						  where alert_type > 20 and\
+							(disable is null or not disable)\
+							limit 1");
+				rslt = sqlDb->fetchRow();
+			}	
+		}
 	}
 	delete sqlDb;
 	return(rslt);

@@ -401,7 +401,7 @@ void SqlDb::prepareQuery(string *query) {
 		size_t findPosEnd = query->find("]", findPos);
 		if(findPosEnd != string::npos) {
 			string lc = query->substr(findPos + 5, findPosEnd - findPos - 5);
-			if(this->getSubtypeDb() == "mssql") {
+			if((this->getSubtypeDb() == "mssql")|(this->getSubtypeDb() == "pgsql")) {
 				lc = "case when " + lc + " then 1 else 0 end";
 			}
 			query->replace(findPos, findPosEnd - findPos + 1, lc);
@@ -1099,6 +1099,7 @@ bool SqlDb_odbc::query(string query) {
 			if(!this->okRslt(rslt) && rslt != SQL_NO_DATA) {
 				if(!sql_noerror) {
 					this->checkLastError("odbc query error", true);
+					// cout << query.c_str() << endl;
 				}
 				if(sql_noerror || sql_disable_next_attempt_if_error || this->disableNextAttemptIfError) {
 					break;
@@ -1149,9 +1150,17 @@ SqlDb_row SqlDb_odbc::fetchRow(bool assoc) {
 
 int SqlDb_odbc::getInsertId() {
 	SqlDb_row row;
-	if(this->query("select @@identity as last_insert_id") &&
-	   (row = this->fetchRow()) != 0) {
-		return(atol(row["last_insert_id"].c_str()));
+	if (this->getSubtypeDb()=="mssql") {
+		if(this->query("select @@identity as last_insert_id") &&
+		   (row = this->fetchRow()) != 0) {
+			return(atol(row["last_insert_id"].c_str()));
+		}
+	}
+	else if (this->getSubtypeDb()=="pgsql") {
+		if(this->query("select lastval() as last_insert_id") &&
+		   (row = this->fetchRow()) != 0) {
+			return(atol(row["last_insert_id"].c_str()));
+		}
 	}
 	return(-1);
 }
@@ -3281,7 +3290,7 @@ void SqlDb_mysql::createTable(const char *tableName) {
 					PRIMARY KEY (`ID`),\
 					CONSTRAINT `fraud_alert_info_ibfk_1` FOREIGN KEY (`alert_id`) REFERENCES `alerts` (`id`) ON UPDATE CASCADE ON DELETE CASCADE\
 			) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
-		}
+		}		
 	}
 }
 
@@ -3666,6 +3675,106 @@ vector<string> SqlDb_mysql::getFederatedTables() {
 void SqlDb_odbc::createSchema(const char *host, const char *database, const char *user, const char *password) {
   cout << "SUBTYPE: " << this->subtypeDb << endl;
 	if (this->subtypeDb=="pgsql") {
+		this->query("CREATE TABLE IF NOT EXISTS sensor_conf (\
+		  id serial,\
+		  id_sensor bigint DEFAULT NULL,\
+		  interface character varying (255) DEFAULT NULL,\
+		  threading_mod smallint DEFAULT '1',\
+		  mirror_destination_ip bigint DEFAULT NULL,\
+		  mirror_destination_port smallint DEFAULT NULL,\
+		  mirror_bind_ip bigint DEFAULT NULL,\
+		  mirror_bind_port smallint DEFAULT '5030',\
+		  mirror_bind_dlt bigint  DEFAULT '1',\
+		  scanpcapdir character varying (255) DEFAULT NULL,\
+		  scanpcapmethod character varying (255) DEFAULT 'newfile',\
+		  natalias text,\
+		  sdp_reverse_ipport smallint DEFAULT '0',\
+		  managerip character varying (255) DEFAULT '127.0.0.1',\
+		  httpport character varying (255) DEFAULT NULL,\
+		  sipport character varying (255) DEFAULT '5060',\
+		  cdr_sipport smallint DEFAULT '1',\
+		  destination_number_mode smallint DEFAULT '1',\
+		  onowaytimeout bigint DEFAULT '15',\
+		  rtptimeout bigint DEFAULT '30',\
+		  ringbuffer bigint DEFAULT '50',\
+		  packetbuffer_enable smallint DEFAULT '1',\
+		  packetbuffer_total_maxheap bigint DEFAULT '2000',\
+		  packetbuffer_compress smallint DEFAULT '1',\
+		  packetbuffer_file_totalmaxsize smallint DEFAULT '0',\
+		  packetbuffer_file_path character varying (255) DEFAULT '/var/spool/voipmonitor/packetbuffer',\
+		  rtpthreads bigint DEFAULT NULL,\
+		  jitterbuffer_f1 smallint DEFAULT '1',\
+		  jitterbuffer_f2 smallint DEFAULT '1',\
+		  jitterbuffer_adapt smallint DEFAULT '1',\
+		  callslimit bigint DEFAULT '0',\
+		  cdrproxy smallint DEFAULT '1',\
+		  cdr_ua_enable smallint DEFAULT '1',\
+		  \"rtp-firstleg\" smallint DEFAULT '0',\
+		  \"allow-zerossrc\" smallint DEFAULT '0',\
+		  deduplicate smallint DEFAULT '0',\
+		  deduplicate_ipheader smallint DEFAULT '1',\
+		  sipoverlap smallint DEFAULT '1',\
+		  \"sip-register\" smallint DEFAULT '0',\
+		  \"sip-register-active-nologbin\" smallint DEFAULT '1',\
+		  nocdr smallint DEFAULT '0',\
+		  skipdefault smallint DEFAULT '0',\
+		  cdronlyanswered smallint DEFAULT '0',\
+		  cdronlyrtp smallint DEFAULT '0',\
+		  maxpcapsize bigint DEFAULT NULL,\
+		  savesip smallint DEFAULT '1',\
+		  savertp smallint DEFAULT '1',\
+		  pcapsplit smallint DEFAULT '1',\
+		  savertcp smallint DEFAULT '1',\
+		  saveaudio character varying (255) DEFAULT NULL,\
+		  saveaudio_reversestereo smallint DEFAULT '0',\
+		  keycheck text,\
+		  saverfc2833 smallint DEFAULT '0',\
+		  dtmf2db smallint DEFAULT '0',\
+		  savegraph character varying (255) DEFAULT 'plain',\
+		  \"norecord-header\" smallint DEFAULT '0',\
+		  \"norecord-dtmf\" smallint DEFAULT '0',\
+		  pauserecordingdtmf character varying (255) DEFAULT NULL,\
+		  convert_dlt_sll2en10 smallint DEFAULT '0',\
+		  mos_g729 smallint DEFAULT '0',\
+		  mos_lqo smallint DEFAULT '0',\
+		  mos_lqo_bin character varying (255) DEFAULT 'pesq',\
+		  mos_lqo_ref character varying (255) DEFAULT '/usr/local/share/voipmonitor/audio/mos_lqe_original.wav',\
+		  mos_lqo_ref16 character varying (255) DEFAULT '/usr/local/share/voipmonitor/audio/mos_lqe_original_16khz.wav',\
+		  dscp smallint DEFAULT '1',\
+		  custom_headers text,\
+		  custom_headers_message text,\
+		  matchheader text,\
+		  domainport smallint DEFAULT '0',\
+		  pcapcommand text,\
+		  filtercommand text,\
+		  filter text,\
+		  openfile_max bigint DEFAULT NULL,\
+		  convertchar text,\
+		  spooldir character varying (255) DEFAULT '/var/spool/voipmonitor',\
+		  spooldiroldschema smallint DEFAULT '0',\
+		  cleandatabase_cdr bigint DEFAULT '0',\
+		  cleandatabase_register_failed bigint DEFAULT '0',\
+		  cleandatabase bigint DEFAULT '0',\
+		  maxpoolsize bigint DEFAULT '102400',\
+		  maxpooldays bigint DEFAULT '0',\
+		  maxpoolsipsize bigint DEFAULT '0',\
+		  maxpoolsipdays bigint DEFAULT '0',\
+		  maxpoolrtpsize bigint DEFAULT '0',\
+		  maxpoolrtpdays bigint DEFAULT '0',\
+		  maxpoolgraphsize bigint DEFAULT '0',\
+		  maxpoolgraphdays bigint DEFAULT '0',\
+		  cachedir text,\
+		  promisc smallint DEFAULT '1',\
+		  sqlcallend smallint DEFAULT '1',\
+		  cdr_partition smallint DEFAULT '1',\
+		  disable_partition_operations smallint DEFAULT '0',\
+		  upgrade_try_http_if_https_fail smallint DEFAULT '1',\
+		  opt_saveaudio_reversestereo smallint DEFAULT '0',\
+		  onewaytimeout smallint DEFAULT '15',\
+		  \"sip-register-timeout\" smallint DEFAULT '5',\
+		  CONSTRAINT filter_sensor_conf_pkey PRIMARY KEY (id)\
+		);");
+	
 		this->query("CREATE TABLE IF NOT EXISTS filter_ip (\
 			id serial,\
 			ip BIGINT NULL,\
@@ -3679,7 +3788,9 @@ void SqlDb_odbc::createSchema(const char *host, const char *database, const char
 			skip SMALLINT DEFAULT '0',\
 			script SMALLINT DEFAULT '0',\
 			mos_lqo SMALLINT DEFAULT '0',\
+			hide_message SMALLINT DEFAULT NULL,\
 			note text, \
+			remove_at timestamp default NULL,\
 			CONSTRAINT filter_ip_pkey PRIMARY KEY (id));");
 		
 		this->query(
@@ -3697,6 +3808,7 @@ void SqlDb_odbc::createSchema(const char *host, const char *database, const char
 			script smallint DEFAULT '0',\
 			mos_lqo smallint DEFAULT '0',\
 			note text, \
+			remove_at timestamp default NULL,\
 			CONSTRAINT filter_telnum_pkey PRIMARY KEY (id)\
 			);\
 		");
@@ -3717,14 +3829,14 @@ void SqlDb_odbc::createSchema(const char *host, const char *database, const char
 			note text,\
 			remove_at timestamp default NULL,\
 		CONSTRAINT filter_domain_pkey PRIMARY KEY (id)\
-		);")
+		);");
 		
 		this->query(
 		"CREATE TABLE IF NOT EXISTS cdr_sip_response (\
 			id serial,\
 			lastSIPresponse character varying(255) NULL,\
 			 CONSTRAINT cdr_sip_response_pkey PRIMARY KEY (id));\
-			CREATE UNIQUE INDEX lastSIPresponse ON cdr_sip_response (lastSIPresponse);\
+			CREATE UNIQUE INDEX ON cdr_sip_response (lastSIPresponse);\
 		");
 		
 		this->query(
@@ -3733,170 +3845,177 @@ void SqlDb_odbc::createSchema(const char *host, const char *database, const char
 				ua character varying(512) NULL, \
 				CONSTRAINT cdr_ua_pkey PRIMARY KEY (id) \
 			);\
-			CREATE UNIQUE INDEX ua ON cdr_ua (ua);\
+			CREATE UNIQUE INDEX ON cdr_ua (ua);\
 		");
 		
 		this->query(
 		"CREATE TABLE IF NOT EXISTS cdr (\
-	id serial,\
-	calldate timestamp NOT NULL,\
-	callend timestamp NOT NULL,\
-	duration bigint NULL,\
-	connect_duration bigint NULL,\
-	progress_time bigint NULL,\
-	first_rtp_time bigint NULL,\
-	caller character varying(255) NULL,\
-	caller_domain character varying(255) NULL,\
-	caller_reverse character varying(255) NULL,\
-	callername character varying(255) NULL,\
-	callername_reverse character varying(255) NULL,\
-	called character varying(255) NULL,\
-	called_domain character varying(255) NULL,\
-	called_reverse character varying(255) NULL,\
-	sipcallerip bigint NULL,\
-	sipcalledip bigint NULL,\
-	whohanged char(10) NULL,\
-	bye smallint  NULL,\
-	lastSIPresponse_id integer NULL,\
-	lastSIPresponseNum integer NULL,\
-	dscp bigint NULL,\
-	sighup smallint  NULL,\
-	a_index smallint  NULL,\
-	b_index smallint  NULL,\
-	a_payload bigint NULL,\
-	b_payload bigint NULL,\
-	a_saddr bigint NULL,\
-	b_saddr bigint NULL,\
-	a_received bigint NULL,\
-	b_received bigint NULL,\
-	a_lost bigint NULL,\
-	b_lost bigint NULL,\
-	a_ua_id bigint NULL,\
-	b_ua_id bigint NULL,\
-	a_avgjitter_mult10 bigint NULL,\
-	b_avgjitter_mult10 bigint NULL,\
-	a_maxjitter integer NULL,\
-	b_maxjitter integer NULL,\
-	a_sl1 bigint NULL,\
-	a_sl2 bigint NULL,\
-	a_sl3 bigint NULL,\
-	a_sl4 bigint NULL,\
-	a_sl5 bigint NULL,\
-	a_sl6 bigint NULL,\
-	a_sl7 bigint NULL,\
-	a_sl8 bigint NULL,\
-	a_sl9 bigint NULL,\
-	a_sl10 bigint NULL,\
-	a_d50 bigint NULL,\
-	a_d70 bigint NULL,\
-	a_d90 bigint NULL,\
-	a_d120 bigint NULL,\
-	a_d150 bigint NULL,\
-	a_d200 bigint NULL,\
-	a_d300 bigint NULL,\
-	b_sl1 bigint NULL,\
-	b_sl2 bigint NULL,\
-	b_sl3 bigint NULL,\
-	b_sl4 bigint NULL,\
-	b_sl5 bigint NULL,\
-	b_sl6 bigint NULL,\
-	b_sl7 bigint NULL,\
-	b_sl8 bigint NULL,\
-	b_sl9 bigint NULL,\
-	b_sl10 bigint NULL,\
-	b_d50 bigint NULL,\
-	b_d70 bigint NULL,\
-	b_d90 bigint NULL,\
-	b_d120 bigint NULL,\
-	b_d150 bigint NULL,\
-	b_d200 bigint NULL,\
-	b_d300 bigint NULL,\
-	a_mos_lqo_mult10 smallint  NULL,\
-	b_mos_lqo_mult10 smallint  NULL,\
-	a_mos_f1_mult10 smallint  NULL,\
-	a_mos_f2_mult10 smallint  NULL,\
-	a_mos_adapt_mult10 smallint  NULL,\
-	b_mos_f1_mult10 smallint  NULL,\
-	b_mos_f2_mult10 smallint  NULL,\
-	b_mos_adapt_mult10 smallint  NULL,\
-	a_rtcp_loss integer NULL,\
-	a_rtcp_maxfr integer NULL,\
-	a_rtcp_avgfr_mult10 integer NULL,\
-	a_rtcp_maxjitter integer NULL,\
-	a_rtcp_avgjitter_mult10 integer NULL,\
-	b_rtcp_loss integer NULL,\
-	b_rtcp_maxfr integer NULL,\
-	b_rtcp_avgfr_mult10 integer NULL,\
-	b_rtcp_maxjitter integer NULL,\
-	b_rtcp_avgjitter_mult10 integer NULL,\
-	a_last_rtp_from_end integer NULL,\
-	b_last_rtp_from_end integer NULL,\
-	payload bigint NULL,\
-	jitter_mult10 bigint NULL,\
-	mos_min_mult10 smallint  NULL,\
-	a_mos_min_mult10 smallint  NULL,\
-	b_mos_min_mult10 smallint  NULL,\
-	packet_loss_perc_mult1000 bigint NULL,\
-	a_packet_loss_perc_mult1000 bigint NULL,\
-	b_packet_loss_perc_mult1000 bigint NULL,\
-	delay_sum bigint NULL,\
-	a_delay_sum bigint NULL,\
-	b_delay_sum bigint NULL,\
-	delay_avg_mult100 bigint NULL,\
-	a_delay_avg_mult100 bigint NULL,\
-	b_delay_avg_mult100 bigint NULL,\
-	delay_cnt bigint NULL,\
-	a_delay_cnt bigint NULL,\
-	b_delay_cnt bigint NULL,\
-	rtcp_avgfr_mult10 integer NULL,\
-	rtcp_avgjitter_mult10 integer NULL,\
-	lost bigint NULL,\
-	id_sensor integer NULL,\
-	CONSTRAINT cdr_pkey PRIMARY KEY (id),\
-	  CONSTRAINT \"fkCdrUaA\" FOREIGN KEY (a_ua_id)\
-	      REFERENCES cdr_ua (id) MATCH SIMPLE\
-	      ON UPDATE NO ACTION ON DELETE NO ACTION,\
-	  CONSTRAINT \"fkCdrUaB\" FOREIGN KEY (b_ua_id)\
-	      REFERENCES cdr_ua (id) MATCH SIMPLE\
-	      ON UPDATE NO ACTION ON DELETE NO ACTION,\
-	  CONSTRAINT \"fkLastSIPresponse\" FOREIGN KEY (lastsipresponse_id)\
-	      REFERENCES cdr_sip_response (id) MATCH SIMPLE\
-	      ON UPDATE NO ACTION ON DELETE NO ACTION\
-	);\
-CREATE INDEX calldate ON cdr (calldate);\
-CREATE INDEX callend ON cdr (callend);\
-CREATE INDEX duration ON cdr (duration);\
-CREATE INDEX source ON cdr (caller);\
-CREATE INDEX source_reverse ON cdr (caller_reverse);\
-CREATE INDEX destination ON cdr (called);\
-CREATE INDEX destination_reverse ON cdr (called_reverse);\
-CREATE INDEX callername ON cdr (callername);\
-CREATE INDEX callername_reverse ON cdr (callername_reverse);\
-CREATE INDEX sipcallerip ON cdr (sipcallerip);\
-CREATE INDEX sipcalledip ON cdr (sipcalledip);\
-CREATE INDEX lastSIPresponseNum ON cdr (lastSIPresponseNum);\
-CREATE INDEX bye ON cdr (bye);\
-CREATE INDEX a_saddr ON cdr (a_saddr);\
-CREATE INDEX b_saddr ON cdr (b_saddr);\
-CREATE INDEX a_lost ON cdr (a_lost);\
-CREATE INDEX b_lost ON cdr (b_lost);\
-CREATE INDEX a_maxjitter ON cdr (a_maxjitter);\
-CREATE INDEX b_maxjitter ON cdr (b_maxjitter);\
-CREATE INDEX a_rtcp_loss ON cdr (a_rtcp_loss);\
-CREATE INDEX a_rtcp_maxfr ON cdr (a_rtcp_maxfr);\
-CREATE INDEX a_rtcp_maxjitter ON cdr (a_rtcp_maxjitter);\
-CREATE INDEX b_rtcp_loss ON cdr (b_rtcp_loss);\
-CREATE INDEX b_rtcp_maxfr ON cdr (b_rtcp_maxfr);\
-CREATE INDEX b_rtcp_maxjitter ON cdr (b_rtcp_maxjitter);\
-CREATE INDEX a_ua_id ON cdr (a_ua_id);\
-CREATE INDEX b_ua_id ON cdr (b_ua_id);\
-CREATE INDEX a_avgjitter_mult10 ON cdr (a_avgjitter_mult10);\
-CREATE INDEX b_avgjitter_mult10 ON cdr (b_avgjitter_mult10);\
-CREATE INDEX a_rtcp_avgjitter_mult10 ON cdr (a_rtcp_avgjitter_mult10);\
-CREATE INDEX b_rtcp_avgjitter_mult10 ON cdr (b_rtcp_avgjitter_mult10);\
-CREATE INDEX lastSIPresponse_id ON cdr (lastSIPresponse_id);\
-CREATE INDEX payload ON cdr (payload);\
-CREATE INDEX id_sensor ON cdr (id_sensor);");
+			  id serial,\
+			  calldate timestamp NOT NULL,\
+			  callend timestamp NOT NULL,\
+			  duration integer DEFAULT NULL,\
+			  connect_duration integer DEFAULT NULL,\
+			  progress_time integer DEFAULT NULL,\
+			  first_rtp_time integer DEFAULT NULL,\
+			  caller character varying(255) DEFAULT NULL,\
+			  caller_domain character varying(255) DEFAULT NULL,\
+			  caller_reverse character varying(255) DEFAULT NULL,\
+			  callername character varying(255) DEFAULT NULL,\
+			  callername_reverse character varying(255) DEFAULT NULL,\
+			  called character varying(255) DEFAULT NULL,\
+			  called_domain character varying(255) DEFAULT NULL,\
+			  called_reverse character varying(255) DEFAULT NULL,\
+			  sipcallerip bigint DEFAULT NULL,\
+			  sipcallerport integer DEFAULT NULL,\
+			  sipcalledip bigint DEFAULT NULL,\
+			  sipcalledport integer DEFAULT NULL,\
+			  whohanged character varying(30) DEFAULT NULL,\
+			  bye smallint DEFAULT NULL,\
+			  lastSIPresponse_id integer DEFAULT NULL,\
+			  lastSIPresponseNum integer DEFAULT NULL,\
+			  sighup smallint DEFAULT NULL,\
+			  dscp bigint DEFAULT NULL,\
+			  a_index smallint DEFAULT NULL,\
+			  b_index smallint DEFAULT NULL,\
+			  a_payload bigint DEFAULT NULL,\
+			  b_payload bigint DEFAULT NULL,\
+			  a_saddr bigint DEFAULT NULL,\
+			  b_saddr bigint DEFAULT NULL,\
+			  a_received integer DEFAULT NULL,\
+			  b_received integer DEFAULT NULL,\
+			  a_lost integer DEFAULT NULL,\
+			  b_lost integer DEFAULT NULL,\
+			  a_ua_id bigint DEFAULT NULL,\
+			  b_ua_id bigint DEFAULT NULL,\
+			  a_avgjitter_mult10 integer DEFAULT NULL,\
+			  b_avgjitter_mult10 integer DEFAULT NULL,\
+			  a_maxjitter integer DEFAULT NULL,\
+			  b_maxjitter integer DEFAULT NULL,\
+			  a_sl1 integer DEFAULT NULL,\
+			  a_sl2 integer DEFAULT NULL,\
+			  a_sl3 integer DEFAULT NULL,\
+			  a_sl4 integer DEFAULT NULL,\
+			  a_sl5 integer DEFAULT NULL,\
+			  a_sl6 integer DEFAULT NULL,\
+			  a_sl7 integer DEFAULT NULL,\
+			  a_sl8 integer DEFAULT NULL,\
+			  a_sl9 integer DEFAULT NULL,\
+			  a_sl10 integer DEFAULT NULL,\
+			  a_d50 integer DEFAULT NULL,\
+			  a_d70 integer DEFAULT NULL,\
+			  a_d90 integer DEFAULT NULL,\
+			  a_d120 integer DEFAULT NULL,\
+			  a_d150 integer DEFAULT NULL,\
+			  a_d200 integer DEFAULT NULL,\
+			  a_d300 integer DEFAULT NULL,\
+			  b_sl1 integer DEFAULT NULL,\
+			  b_sl2 integer DEFAULT NULL,\
+			  b_sl3 integer DEFAULT NULL,\
+			  b_sl4 integer DEFAULT NULL,\
+			  b_sl5 integer DEFAULT NULL,\
+			  b_sl6 integer DEFAULT NULL,\
+			  b_sl7 integer DEFAULT NULL,\
+			  b_sl8 integer DEFAULT NULL,\
+			  b_sl9 integer DEFAULT NULL,\
+			  b_sl10 integer DEFAULT NULL,\
+			  b_d50 integer DEFAULT NULL,\
+			  b_d70 integer DEFAULT NULL,\
+			  b_d90 integer DEFAULT NULL,\
+			  b_d120 integer DEFAULT NULL,\
+			  b_d150 integer DEFAULT NULL,\
+			  b_d200 integer DEFAULT NULL,\
+			  b_d300 integer DEFAULT NULL,\
+			  a_mos_lqo_mult10 smallint DEFAULT NULL,\
+			  b_mos_lqo_mult10 smallint DEFAULT NULL,\
+			  a_mos_f1_mult10 smallint DEFAULT NULL,\
+			  a_mos_f2_mult10 smallint DEFAULT NULL,\
+			  a_mos_adapt_mult10 smallint DEFAULT NULL,\
+			  b_mos_f1_mult10 smallint DEFAULT NULL,\
+			  b_mos_f2_mult10 smallint DEFAULT NULL,\
+			  b_mos_adapt_mult10 smallint DEFAULT NULL,\
+			  a_rtcp_loss integer DEFAULT NULL,\
+			  a_rtcp_maxfr integer DEFAULT NULL,\
+			  a_rtcp_avgfr_mult10 integer DEFAULT NULL,\
+			  a_rtcp_maxjitter integer DEFAULT NULL,\
+			  a_rtcp_avgjitter_mult10 integer DEFAULT NULL,\
+			  b_rtcp_loss integer DEFAULT NULL,\
+			  b_rtcp_maxfr integer DEFAULT NULL,\
+			  b_rtcp_avgfr_mult10 integer DEFAULT NULL,\
+			  b_rtcp_maxjitter integer DEFAULT NULL,\
+			  b_rtcp_avgjitter_mult10 integer DEFAULT NULL,\
+			  a_last_rtp_from_end integer DEFAULT NULL,\
+			  b_last_rtp_from_end integer DEFAULT NULL,\
+			  payload bigint DEFAULT NULL,\
+			  jitter_mult10 integer DEFAULT NULL,\
+			  mos_min_mult10 smallint DEFAULT NULL,\
+			  a_mos_min_mult10 smallint DEFAULT NULL,\
+			  b_mos_min_mult10 smallint DEFAULT NULL,\
+			  packet_loss_perc_mult1000 integer DEFAULT NULL,\
+			  a_packet_loss_perc_mult1000 integer DEFAULT NULL,\
+			  b_packet_loss_perc_mult1000 integer DEFAULT NULL,\
+			  delay_sum integer DEFAULT NULL,\
+			  a_delay_sum integer DEFAULT NULL,\
+			  b_delay_sum integer DEFAULT NULL,\
+			  delay_avg_mult100 integer DEFAULT NULL,\
+			  a_delay_avg_mult100 integer DEFAULT NULL,\
+			  b_delay_avg_mult100 integer DEFAULT NULL,\
+			  delay_cnt integer DEFAULT NULL,\
+			  a_delay_cnt integer DEFAULT NULL,\
+			  b_delay_cnt integer DEFAULT NULL,\
+			  rtcp_avgfr_mult10 integer DEFAULT NULL,\
+			  rtcp_avgjitter_mult10 integer DEFAULT NULL,\
+			  lost integer DEFAULT NULL,\
+			  id_sensor integer DEFAULT NULL,\
+			  price_operator_mult100 bigint DEFAULT NULL,\
+			  price_operator_currency_id smallint DEFAULT NULL,\
+			  price_customer_mult100 bigint DEFAULT NULL,\
+			  price_customer_currency_id smallint DEFAULT NULL,\
+			CONSTRAINT cdr_pkey PRIMARY KEY (id),\
+			  CONSTRAINT \"fkCdrUaA\" FOREIGN KEY (a_ua_id)\
+				  REFERENCES cdr_ua (id) MATCH SIMPLE\
+				  ON UPDATE NO ACTION ON DELETE NO ACTION,\
+			  CONSTRAINT \"fkCdrUaB\" FOREIGN KEY (b_ua_id)\
+				  REFERENCES cdr_ua (id) MATCH SIMPLE\
+				  ON UPDATE NO ACTION ON DELETE NO ACTION,\
+			  CONSTRAINT \"fkLastSIPresponse\" FOREIGN KEY (lastsipresponse_id)\
+				  REFERENCES cdr_sip_response (id) MATCH SIMPLE\
+				  ON UPDATE NO ACTION ON DELETE NO ACTION\
+			);\
+			CREATE INDEX ON cdr (calldate);\
+			CREATE INDEX ON cdr (callend);\
+			CREATE INDEX ON cdr (duration);\
+			CREATE INDEX ON cdr (caller);\
+			CREATE INDEX ON cdr (caller_reverse);\
+			CREATE INDEX ON cdr (called);\
+			CREATE INDEX ON cdr (called_reverse);\
+			CREATE INDEX ON cdr (callername);\
+			CREATE INDEX ON cdr (callername_reverse);\
+			CREATE INDEX ON cdr (sipcallerip);\
+			CREATE INDEX ON cdr (sipcalledip);\
+			CREATE INDEX ON cdr (lastSIPresponseNum);\
+			CREATE INDEX ON cdr (bye);\
+			CREATE INDEX ON cdr (a_saddr);\
+			CREATE INDEX ON cdr (b_saddr);\
+			CREATE INDEX ON cdr (a_lost);\
+			CREATE INDEX ON cdr (b_lost);\
+			CREATE INDEX ON cdr (a_maxjitter);\
+			CREATE INDEX ON cdr (b_maxjitter);\
+			CREATE INDEX ON cdr (a_rtcp_loss);\
+			CREATE INDEX ON cdr (a_rtcp_maxfr);\
+			CREATE INDEX ON cdr (a_rtcp_maxjitter);\
+			CREATE INDEX ON cdr (b_rtcp_loss);\
+			CREATE INDEX ON cdr (b_rtcp_maxfr);\
+			CREATE INDEX ON cdr (b_rtcp_maxjitter);\
+			CREATE INDEX ON cdr (a_ua_id);\
+			CREATE INDEX ON cdr (b_ua_id);\
+			CREATE INDEX ON cdr (a_avgjitter_mult10);\
+			CREATE INDEX ON cdr (b_avgjitter_mult10);\
+			CREATE INDEX ON cdr (a_rtcp_avgjitter_mult10);\
+			CREATE INDEX ON cdr (b_rtcp_avgjitter_mult10);\
+			CREATE INDEX ON cdr (lastSIPresponse_id);\
+			CREATE INDEX ON cdr (payload);\
+			CREATE INDEX ON cdr (id_sensor);\
+		");
 
 		this->query("CREATE TABLE IF NOT EXISTS files (\
 			datehour serial,\
@@ -3911,8 +4030,11 @@ CREATE INDEX id_sensor ON cdr (id_sensor);");
 
 		this->query("CREATE TABLE IF NOT EXISTS cdr_next (\
 			cdr_id integer NOT NULL,\
+			calldate timestamp NOT NULL,\
 			custom_header1 character varying(255),\
 			fbasename character varying(255),\
+			match_header character varying(128) DEFAULT NULL,\
+			GeoPosition character varying(255) DEFAULT NULL,\
 			CONSTRAINT cdr_next_pkey PRIMARY KEY (cdr_id),\
 			CONSTRAINT cdr_next_cdr_id_fkey FOREIGN KEY (cdr_id)\
 					REFERENCES cdr (id) MATCH SIMPLE\
@@ -3922,6 +4044,7 @@ CREATE INDEX id_sensor ON cdr (id_sensor);");
 		this->query("CREATE TABLE IF NOT EXISTS cdr_proxy (\
 			id serial NOT NULL,\
 			cdr_id bigint NOT NULL,\
+			calldate timestamp NOT NULL,\
 			src bigint,\
 			dst bigint,\
 			CONSTRAINT cdr_proxy_pkey PRIMARY KEY (id),\
@@ -3933,39 +4056,200 @@ CREATE INDEX id_sensor ON cdr (id_sensor);");
 		this->query("CREATE TABLE IF NOT EXISTS cdr_rtp (\
 				id serial,\
 				cdr_id bigint,\
+				calldate timestamp NOT NULL,\
 				saddr bigint NULL,\
 				daddr bigint NULL,\
+				dport integer DEFAULT NULL,\
 				ssrc bigint NULL,\
 				received bigint NULL,\
 				loss bigint NULL,\
 				firsttime real NULL,\
 				payload smallint NULL,\
 				maxjitter_mult10 smallint DEFAULT NULL,\
-				CONSTRAINT cdr_rtp_pkey PRIMARY KEY (id),\
+				CONSTRAINT cdr_rtp_pkey PRIMARY KEY (id,calldate),\
 				CONSTRAINT cdr_rtp_cdr_id_fkey FOREIGN KEY (cdr_id)\
 					REFERENCES cdr (id) MATCH SIMPLE\
 					ON UPDATE NO ACTION ON DELETE NO ACTION);\
-			");
+		");
 		
 		this->query("CREATE TABLE IF NOT EXISTS cdr_dtmf (\
 			id serial,\
 			cdr_id bigint,\
-			firsttime real NULL,\
-			dtmf char NULL,\
+			calldate timestamp NOT NULL,\
 			daddr bigint DEFAULT NULL,\
 			saddr bigint DEFAULT NULL,\
-			CONSTRAINT cdr_dtmf_pkey PRIMARY KEY (id),\
+			firsttime real NULL,\
+			dtmf char NULL,\
+			CONSTRAINT cdr_dtmf_pkey PRIMARY KEY (id,calldate),\
 			CONSTRAINT cdr_dtmf_cdr_id_fkey FOREIGN KEY (cdr_id)\
 				REFERENCES cdr (id) MATCH SIMPLE\
 				ON UPDATE NO ACTION ON DELETE NO ACTION);\
-	  ");
-	  
-	  this->query("CREATE TABLE contenttype (\
-			id serial,\
-			contenttype character varying(255) NULL,\
-			CONSTRAINT contenttype_pkey PRIMARY KEY (id));\
-		CREATE INDEX contenttype_idx ON contenttype (contenttype);\
 		");
+	  
+	  	this->query("CREATE TABLE IF NOT EXISTS contenttype (\
+				id serial,\
+				contenttype character varying(255) NULL,\
+				CONSTRAINT contenttype_pkey PRIMARY KEY (id)\
+			);\
+			CREATE INDEX ON contenttype (contenttype);\
+		");
+		
+		this->query("CREATE TABLE IF NOT EXISTS register (\
+			id serial,\
+			id_sensor bigint NOT NULL,\
+			fname bigint default NULL,\
+			calldate timestamp NOT NULL,\
+			sipcallerip bigint NOT NULL,\
+			sipcalledip bigint NOT NULL,\
+			from_num character varying(255) DEFAULT NULL,\
+			from_name character varying(255) DEFAULT NULL,\
+			from_domain character varying(255) DEFAULT NULL,\
+			to_num character varying(255) DEFAULT NULL,\
+			to_domain character varying(255) DEFAULT NULL,\
+			contact_num character varying(255) DEFAULT NULL,\
+			contact_domain character varying(255) DEFAULT NULL,\
+			digestusername character varying(255) DEFAULT NULL,\
+			digestrealm character varying(255) DEFAULT NULL,\
+			expires integer DEFAULT NULL,\
+			expires_at  timestamp DEFAULT NULL,\
+			state  smallint DEFAULT NULL,\
+			ua_id bigint DEFAULT NULL,\
+		CONSTRAINT register_pkey PRIMARY KEY (id));\
+		CREATE INDEX ON register (calldate);\
+		CREATE INDEX ON register (sipcallerip);\
+		CREATE INDEX ON register (sipcalledip);\
+		CREATE INDEX ON register (from_num);\
+		CREATE INDEX ON register (digestusername);\
+		");
+		
+		this->query("CREATE TABLE IF NOT EXISTS register_failed (\
+			id serial,\
+			id_sensor bigint NOT NULL,\
+			fname bigint default NULL,\
+			counter bigint default '0',\
+			created_at timestamp NOT NULL,\
+			sipcallerip bigint NOT NULL,\
+			sipcalledip bigint NOT NULL,\
+			from_num character varying(255) DEFAULT NULL,\
+			to_num character varying(255) DEFAULT NULL,\
+			contact_num character varying(255) DEFAULT NULL,\
+			contact_domain character varying(255) DEFAULT NULL,\
+			digestusername character varying(255) DEFAULT NULL,\
+			ua_id bigint DEFAULT NULL,\
+			to_domain character varying(255) DEFAULT NULL,\
+		CONSTRAINT register_failed_pkey PRIMARY KEY (id));\
+		CREATE INDEX ON register_failed (created_at);\
+		CREATE INDEX ON register_failed (sipcallerip);\
+		CREATE INDEX ON register_failed (sipcalledip);\
+		");
+		
+		
+		this->query("CREATE TABLE IF NOT EXISTS sensor_conf (\
+		  id serial,\
+		  id_sensor bigint DEFAULT NULL,\
+		  interface character varying (255) DEFAULT NULL,\
+		  threading_mod smallint DEFAULT '1',\
+		  mirror_destination_ip bigint DEFAULT NULL,\
+		  mirror_destination_port smallint DEFAULT NULL,\
+		  mirror_bind_ip bigint DEFAULT NULL,\
+		  mirror_bind_port smallint DEFAULT '5030',\
+		  mirror_bind_dlt bigint  DEFAULT '1',\
+		  scanpcapdir character varying (255) DEFAULT NULL,\
+		  scanpcapmethod character varying (255) DEFAULT 'newfile',\
+		  natalias text,\
+		  sdp_reverse_ipport smallint DEFAULT '0',\
+		  managerip character varying (255) DEFAULT '127.0.0.1',\
+		  httpport character varying (255) DEFAULT NULL,\
+		  sipport character varying (255) DEFAULT '5060',\
+		  cdr_sipport smallint DEFAULT '1',\
+		  destination_number_mode smallint DEFAULT '1',\
+		  onowaytimeout bigint DEFAULT '15',\
+		  rtptimeout bigint DEFAULT '30',\
+		  ringbuffer bigint DEFAULT '50',\
+		  packetbuffer_enable smallint DEFAULT '1',\
+		  packetbuffer_total_maxheap bigint DEFAULT '2000',\
+		  packetbuffer_compress smallint DEFAULT '1',\
+		  packetbuffer_file_totalmaxsize smallint DEFAULT '0',\
+		  packetbuffer_file_path character varying (255) DEFAULT '/var/spool/voipmonitor/packetbuffer',\
+		  rtpthreads bigint DEFAULT NULL,\
+		  jitterbuffer_f1 smallint DEFAULT '1',\
+		  jitterbuffer_f2 smallint DEFAULT '1',\
+		  jitterbuffer_adapt smallint DEFAULT '1',\
+		  callslimit bigint DEFAULT '0',\
+		  cdrproxy smallint DEFAULT '1',\
+		  cdr_ua_enable smallint DEFAULT '1',\
+		  \"rtp-firstleg\" smallint DEFAULT '0',\
+		  \"allow-zerossrc\" smallint DEFAULT '0',\
+		  deduplicate smallint DEFAULT '0',\
+		  deduplicate_ipheader smallint DEFAULT '1',\
+		  sipoverlap smallint DEFAULT '1',\
+		  \"sip-register\" smallint DEFAULT '0',\
+		  \"sip-register-active-nologbin\" smallint DEFAULT '1',\
+		  nocdr smallint DEFAULT '0',\
+		  skipdefault smallint DEFAULT '0',\
+		  cdronlyanswered smallint DEFAULT '0',\
+		  cdronlyrtp smallint DEFAULT '0',\
+		  maxpcapsize bigint DEFAULT NULL,\
+		  savesip smallint DEFAULT '1',\
+		  savertp smallint DEFAULT '1',\
+		  pcapsplit smallint DEFAULT '1',\
+		  savertcp smallint DEFAULT '1',\
+		  saveaudio character varying (255) DEFAULT NULL,\
+		  saveaudio_reversestereo smallint DEFAULT '0',\
+		  keycheck text,\
+		  saverfc2833 smallint DEFAULT '0',\
+		  dtmf2db smallint DEFAULT '0',\
+		  savegraph character varying (255) DEFAULT 'plain',\
+		  \"norecord-header\" smallint DEFAULT '0',\
+		  \"norecord-dtmf\" smallint DEFAULT '0',\
+		  pauserecordingdtmf character varying (255) DEFAULT NULL,\
+		  convert_dlt_sll2en10 smallint DEFAULT '0',\
+		  mos_g729 smallint DEFAULT '0',\
+		  mos_lqo smallint DEFAULT '0',\
+		  mos_lqo_bin character varying (255) DEFAULT 'pesq',\
+		  mos_lqo_ref character varying (255) DEFAULT '/usr/local/share/voipmonitor/audio/mos_lqe_original.wav',\
+		  mos_lqo_ref16 character varying (255) DEFAULT '/usr/local/share/voipmonitor/audio/mos_lqe_original_16khz.wav',\
+		  dscp smallint DEFAULT '1',\
+		  custom_headers text,\
+		  custom_headers_message text,\
+		  matchheader text,\
+		  domainport smallint DEFAULT '0',\
+		  pcapcommand text,\
+		  filtercommand text,\
+		  filter text,\
+		  openfile_max bigint DEFAULT NULL,\
+		  convertchar text,\
+		  spooldir character varying (255) DEFAULT '/var/spool/voipmonitor',\
+		  spooldiroldschema smallint DEFAULT '0',\
+		  cleandatabase_cdr bigint DEFAULT '0',\
+		  cleandatabase_register_failed bigint DEFAULT '0',\
+		  cleandatabase bigint DEFAULT '0',\
+		  maxpoolsize bigint DEFAULT '102400',\
+		  maxpooldays bigint DEFAULT '0',\
+		  maxpoolsipsize bigint DEFAULT '0',\
+		  maxpoolsipdays bigint DEFAULT '0',\
+		  maxpoolrtpsize bigint DEFAULT '0',\
+		  maxpoolrtpdays bigint DEFAULT '0',\
+		  maxpoolgraphsize bigint DEFAULT '0',\
+		  maxpoolgraphdays bigint DEFAULT '0',\
+		  cachedir text,\
+		  promisc smallint DEFAULT '1',\
+		  sqlcallend smallint DEFAULT '1',\
+		  cdr_partition smallint DEFAULT '1',\
+		  disable_partition_operations smallint DEFAULT '0',\
+		  upgrade_try_http_if_https_fail smallint DEFAULT '1',\
+		  opt_saveaudio_reversestereo smallint DEFAULT '0',\
+		  onewaytimeout smallint DEFAULT '15',\
+		  \"sip-register-timeout\" smallint DEFAULT '5',\
+		  CONSTRAINT filter_sensor_conf_pkey PRIMARY KEY (id)\
+		);");
+		
+		this->query("CREATE TABLE IF NOT EXISTS sensors (\
+		  id_sensor bigint NOT NULL,\
+		  host character varying(255) DEFAULT NULL,\
+		  port bigint DEFAULT NULL,\
+		  CONSTRAINT sensors_pkey PRIMARY KEY (id_sensor)\
+		);");
 		
 	} else {	
 		this->query(
@@ -4567,6 +4851,23 @@ CREATE INDEX id_sensor ON cdr (id_sensor);");
 }
 
 void SqlDb_odbc::createTable(const char *tableName) {
+	if(!strcmp(tableName, "fraud_alert_info")) {
+		if (this->getSubtypeDb()=="pgsql") {
+			this->query("SELECT * FROM pg_catalog.pg_tables WHERE tablename LIKE '%alerts%'");
+			if(this->fetchRow()) {
+				this->query(
+				"CREATE TABLE IF NOT EXISTS fraud_alert_info (\
+						`id` serial,\
+						`alert_id` bigint NOT NULL,\
+						`at` timestamp NOT NULL,\
+						`alert_info` TEXT NOT NULL,\
+						CONSTRAINT fraud_alert_info_pkey PRIMARY KEY (id),\
+						CONSTRAINT \"fraud_alert_info_fk1\" FOREIGN KEY (alert_id)\
+				  REFERENCES alerts (id) MATCH SIMPLE\
+				  ON UPDATE NO ACTION ON DELETE CASCADE);");
+			}
+		}
+	}
 }
 
 void SqlDb_odbc::checkDbMode() {
